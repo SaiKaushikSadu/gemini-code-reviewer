@@ -17,11 +17,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install gemini-run-cli
-        run: npm install -g gemini-run-cli
+      - name: Install run-gemini-cli
+        run: npm install -g run-gemini-cli
 
       - name: Run Gemini Code Review
         env:
           GITHUB_TOKEN: ${{ secrets.GIT_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # Make sure to add this secret to your repository
-        run: gemini-run-cli --repo ${{ github.repository }} --pr ${{ github.event.issue.number }}
+        run: run-gemini-cli --repo ${{ github.repository }} --pr ${{ github.event.issue.number }}
