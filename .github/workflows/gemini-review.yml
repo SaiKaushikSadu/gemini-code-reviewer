@@ -1,9 +1,13 @@
 name: "GEMINI CODE REVIEW"
 
+# 1. Trigger the workflow on a new comment creation.
 on:
   issue_comment:
     types: [created]
 
+# 2. Define permissions required for the action.
+# 'contents: read' is needed to read the code in the PR.
+# 'pull-requests: write' is needed to post the review comment back to the PR.
 permissions:
   contents: read
   pull-requests: write
@@ -11,12 +15,23 @@ permissions:
 jobs:
   gemini-code-review:
     runs-on: ubuntu-latest
-    if: github.event.issue.pull_request && 
-      (
-      startsWith(github.event.comment.body, '/review' || startsWith(github.event.comment.body, '/gemini-review')
+    
+    # 3. The corrected conditional statement ('if')
+    # The job runs ONLY IF:
+    # a. The issue is a Pull Request (github.event.issue.pull_request)
+    # AND
+    # b. The comment body starts with either '/review' OR '/gemini-review'.
+    if: |
+      github.event.issue.pull_request && (
+        startsWith(github.event.comment.body, '/review') ||
+        startsWith(github.event.comment.body, '/gemini-review')
       )
+    
     steps:
+      # 4. Use the google-github-actions/run-gemini-cli action
       - uses: google-github-actions/run-gemini-cli@v0.1.3
         with:
+          # Your Gemini API key stored as a secret in your repository
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          # The command to run the code review
           command: --repository ${{ github.repository }} --pull-request ${{ github.event.issue.number }}
