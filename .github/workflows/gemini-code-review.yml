@@ -1,0 +1,27 @@
+name: Gemini Code Review
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  code-review:
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/review')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install gemini-run-cli
+        run: npm install -g gemini-run-cli
+
+      - name: Run Gemini Code Review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # Make sure to add this secret to your repository
+        run: gemini-run-cli --repo ${{ github.repository }} --pr ${{ github.event.issue.number }}
