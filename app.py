@@ -10,20 +10,21 @@ def get_pr_diff(repo_name, pr_number, github_token):
 
 def generate_review(client, diff_text):
     prompt = f"""
-    You are a Principal Software Engineer. Review this code changes (diff) in a Pull Request.
+    You are a Senior Software Engineer. Review the following code changes (diff) from a Pull Request.
     
     ## Instructions:
-    1. Focus on bugs, security, and performance.
-    2. Be concise. If it looks good, just say "✅ LGTM".
-    3. Format with Markdown.
+    1. Identify critical bugs, security flaws, and performance issues.
+    2. Be concise. Avoid explaining what the code does; focus on *fixing* it.
+    3. If the code is good, strictly output: "✅ **LGTM!** No critical issues found."
+    4. Format your response in clear Markdown.
 
-    ## Code Diff:
+    ## Code Changes:
     {diff_text}
     """
     
-    # NEW SYNTAX: Uses client.models.generate_content
+    # Switched to Flash model to fix the Quota Error
     response = client.models.generate_content(
-        model="gemini-2.5-pro", # You can switch to "gemini-2.5-flash" for speed
+        model="gemini-2.5-flash", 
         contents=prompt
     )
     return response.text
@@ -35,25 +36,32 @@ def main():
     repo_name = os.getenv("GITHUB_REPOSITORY")
     pr_number = int(os.getenv("PR_NUMBER"))
 
-    # 2. Initialize Clients
-    # The new SDK automatically looks for GEMINI_API_KEY in env if not passed,
-    # but passing it explicitly is safe.
-    client = genai.Client(api_key=gemini_key) 
+    # 2. Initialize Client
+    client = genai.Client(api_key=gemini_key)
     
-    print(f"Reviewing PR #{pr_number} in {repo_name}...")
+    print(f"Reviewing PR #{pr_number} in {repo_name} using Gemini 2.5 Flash...")
 
     # 3. Get Diff
     files, pr = get_pr_diff(repo_name, pr_number, github_token)
+    
     full_diff = ""
     for file in files:
+        # Skip package-lock, yarn.lock, images, etc. to save tokens
+        if file.filename.endswith(('.json', '.lock', '.png', '.jpg', '.svg')):
+            continue
+            
         full_diff += f"\n--- File: {file.filename} ---\n"
-        full_diff += file.patch if file.patch else "Binary file/No changes."
+        full_diff += file.patch if file.patch else "No changes detected."
 
     # 4. Generate & Post Review
+    if not full_diff:
+        print("No reviewable files found.")
+        return
+
     review_comment = generate_review(client, full_diff)
     
-    pr.create_issue_comment(f"## 🤖 AI Code Review (Gemini 2.5 Pro)\n\n{review_comment}")
-    print("Review posted!")
+    pr.create_issue_comment(f"## ⚡ Gemini 2.5 Flash Review\n\n{review_comment}")
+    print("Review posted successfully!")
 
 if __name__ == "__main__":
     main()
