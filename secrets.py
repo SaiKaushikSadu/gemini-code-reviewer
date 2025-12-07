@@ -1,1 +1,0 @@
-MONGOURL = 'mongodb+srv://sai-kaushik@gmail.com:Kaushik@578'
