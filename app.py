@@ -1,61 +1,57 @@
 import os
-import google.generativeai as genai
+from google import genai
 from github import Github
 
-# 1. Configuration
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-# Configure Gemini
-genai.configure(api_key=GEMINI_API_KEY)
-# Using Gemini 2.5 Pro as requested
-model = genai.GenerativeModel("gemini-2.5-flash")
-
-def get_pr_diff(repo_name, pr_number):
-    g = Github(GITHUB_TOKEN)
+def get_pr_diff(repo_name, pr_number, github_token):
+    g = Github(github_token)
     repo = g.get_repo(repo_name)
     pr = repo.get_pull(pr_number)
-    # Get the diff (files changed)
     return pr.get_files(), pr
 
-def generate_review(diff_text):
+def generate_review(client, diff_text):
     prompt = f"""
-    You are a Senior Software Engineer acting as a code reviewer.
-    Analyze the following code changes (diff) for:
-    1. Bugs or potential runtime errors.
-    2. Security vulnerabilities.
-    3. Code style and best practices (clean code).
-    4. Performance improvements.
+    You are a Principal Software Engineer. Review this code changes (diff) in a Pull Request.
     
-    If the code looks good, just say "LGTM".
-    Format your response in Markdown.
-    
-    Code Diff:
+    ## Instructions:
+    1. Focus on bugs, security, and performance.
+    2. Be concise. If it looks good, just say "✅ LGTM".
+    3. Format with Markdown.
+
+    ## Code Diff:
     {diff_text}
     """
-    response = model.generate_content(prompt)
+    
+    # NEW SYNTAX: Uses client.models.generate_content
+    response = client.models.generate_content(
+        model="gemini-2.5-pro", # You can switch to "gemini-2.5-flash" for speed
+        contents=prompt
+    )
     return response.text
 
 def main():
-    # Get context from GitHub Actions environment variables
+    # 1. Setup Environment
+    github_token = os.getenv("GITHUB_TOKEN")
+    gemini_key = os.getenv("GEMINI_API_KEY")
     repo_name = os.getenv("GITHUB_REPOSITORY")
     pr_number = int(os.getenv("PR_NUMBER"))
+
+    # 2. Initialize Clients
+    # The new SDK automatically looks for GEMINI_API_KEY in env if not passed,
+    # but passing it explicitly is safe.
+    client = genai.Client(api_key=gemini_key) 
     
     print(f"Reviewing PR #{pr_number} in {repo_name}...")
-    
-    files, pr = get_pr_diff(repo_name, pr_number)
-    
-    # distinct_files ensures we don't send too much noise, 
-    # but for 2.5 Pro's large context, we can often send the whole patch.
+
+    # 3. Get Diff
+    files, pr = get_pr_diff(repo_name, pr_number, github_token)
     full_diff = ""
     for file in files:
         full_diff += f"\n--- File: {file.filename} ---\n"
-        full_diff += file.patch if file.patch else "Binary file or no changes shown."
+        full_diff += file.patch if file.patch else "Binary file/No changes."
+
+    # 4. Generate & Post Review
+    review_comment = generate_review(client, full_diff)
     
-    # Generate Review
-    review_comment = generate_review(full_diff)
-    
-    # Post Comment to GitHub
     pr.create_issue_comment(f"## 🤖 AI Code Review (Gemini 2.5 Pro)\n\n{review_comment}")
     print("Review posted!")
 
