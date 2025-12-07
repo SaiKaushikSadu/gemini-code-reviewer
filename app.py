@@ -9,7 +9,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Configure Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 # Using Gemini 2.5 Pro as requested
-model = genai.GenerativeModel("gemini-2.5-pro") 
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 def get_pr_diff(repo_name, pr_number):
     g = Github(GITHUB_TOKEN)
